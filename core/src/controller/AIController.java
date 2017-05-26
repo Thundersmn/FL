@@ -326,7 +326,7 @@ public class AIController extends CarController {
 		// Check tiles to my right
 		Coordinate currentPosition = new Coordinate(getPosition());
 		for(int i = 0; i <= wallSensitivity; i++){
-			MapTile tile = currentView.get(new Coordinate(currentPosition.x+i, currentPosition.y));
+			MapTile tile = currentView.get(new Coordinate(currentPosition.getX()+i, currentPosition.getY()));
 			if(tile.getName().equals("Wall")){
 				return true;
 			}
@@ -338,7 +338,7 @@ public class AIController extends CarController {
 		// Check tiles to my left
 		Coordinate currentPosition = new Coordinate(getPosition());
 		for(int i = 0; i <= wallSensitivity; i++){
-			MapTile tile = currentView.get(new Coordinate(currentPosition.x-i, currentPosition.y));
+			MapTile tile = currentView.get(new Coordinate(currentPosition.getX()-i, currentPosition.getY()));
 			if(tile.getName().equals("Wall")){
 				return true;
 			}
@@ -350,7 +350,7 @@ public class AIController extends CarController {
 		// Check tiles to towards the top
 		Coordinate currentPosition = new Coordinate(getPosition());
 		for(int i = 0; i <= wallSensitivity; i++){
-			MapTile tile = currentView.get(new Coordinate(currentPosition.x, currentPosition.y+i));
+			MapTile tile = currentView.get(new Coordinate(currentPosition.getX(), currentPosition.getY()+i));
 			if(tile.getName().equals("Wall")){
 				return true;
 			}
@@ -362,7 +362,7 @@ public class AIController extends CarController {
 		// Check tiles towards the bottom
 		Coordinate currentPosition = new Coordinate(getPosition());
 		for(int i = 0; i <= wallSensitivity; i++){
-			MapTile tile = currentView.get(new Coordinate(currentPosition.x, currentPosition.y-i));
+			MapTile tile = currentView.get(new Coordinate(currentPosition.getX(), currentPosition.getY()-i));
 			if(tile.getName().equals("Wall")){
 				return true;
 			}

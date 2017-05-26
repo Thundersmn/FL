@@ -18,28 +18,28 @@ public abstract class CarController {
 	 * Instantiates the car
 	 * @param car
 	 */
-	public CarController(Car car){
+	protected CarController(Car car){
 		this.car = car;
 	}
 	
 	/**
 	 * Slows the car down
 	 */
-	public void applyBrake(){
+	protected void applyBrake(){
 		this.car.brake();
 	}
 	
 	/**
 	 * Speeds the car up in the forward direction
 	 */
-	public void applyForwardAcceleration(){
+	protected void applyForwardAcceleration(){
 		this.car.applyForwardAcceleration();
 	}
 	
 	/**
 	 * Speeds the car up in the backwards direction
 	 */
-	public void applyReverseAcceleration(){
+	protected void applyReverseAcceleration(){
 		this.car.applyReverseAcceleration();
 	}
 	
@@ -47,7 +47,7 @@ public abstract class CarController {
 	 * Turns the car left
 	 * @param delta refers to the value passed in by the update call
 	 */
-	public void turnLeft(float delta){
+	protected void turnLeft(float delta){
 		this.car.turnLeft(delta);
 	}
 	
@@ -55,39 +55,44 @@ public abstract class CarController {
 	 * Turns the car right
 	 * @param delta refers to the value passed in by the update call
 	 */
-	public void turnRight(float delta){
+	protected void turnRight(float delta){
 		this.car.turnRight(delta);
 	}
 	
 	/**
 	 * Retrieves the car's current position
 	 */
-	public String getPosition(){
+	protected String getPosition(){
 		return this.car.getPosition();
 	}
 	
 	/**
 	 * Returns the car's current velocity.
 	 */
-	public float getVelocity(){
+	
+	/** 
+	 * Somehow in the class diagram, we only have one getVelocity() function, we're scratching
+	 * that and sticking to the defaults since they are easier to work with.
+	 */
+	protected float getVelocity(){
 		return this.car.getVelocity();
 	}
 	
-	public Vector2 getRawVelocity(){
+	protected Vector2 getRawVelocity(){
 		return this.car.getRawVelocity();
 	}
 	
 	/**
 	 * Returns the car's current angle
 	 */
-	public float getAngle(){
+	protected float getAngle(){
 		return this.car.getAngle();
 	}
 	
 	/**
 	 * Returns the car's current health
 	 */
-	public int getHealth(){
+	protected int getHealth(){
 		return this.car.getHealth();
 	}
 	
@@ -102,28 +107,28 @@ public abstract class CarController {
 	 * @param turnDirection refers to which direction you are turning
 	 * @param delta refers to the delta value passed by update.
 	 */
-	public PeekTuple peek(Vector2 velocity, float targetDegree, WorldSpatial.RelativeDirection turnDirection, float delta){
+	protected PeekTuple peek(Vector2 velocity, float targetDegree, WorldSpatial.RelativeDirection turnDirection, float delta){
 		return car.peek(velocity, targetDegree, turnDirection, delta);
 	}
 	
 	/**
 	 * Returns the view around your car (this is a 3x3 area)
 	 */
-	public HashMap<Coordinate,MapTile> getView(){
+	protected HashMap<Coordinate,MapTile> getView(){
 		return car.getView();
 	}
 	
 	/**
 	 * Get the distance the car can see
 	 */
-	public int getViewSquare(){
+	protected int getViewSquare(){
 		return Car.VIEW_SQUARE;
 	}
 	
 	/**
 	 * Get the current car orientation (North, West, East or South)
 	 */
-	public WorldSpatial.Direction getOrientation(){
+	protected WorldSpatial.Direction getOrientation(){
 		return car.getOrientation();
 	}
 	
