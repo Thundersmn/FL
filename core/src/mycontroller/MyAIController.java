@@ -1,3 +1,10 @@
+/**
+ * By Michael Lee (563550)
+ * 
+ * Package largely adapted from AIController in controller package
+ * but with added attributes and methods to implement a better behaviour model
+ */
+
 package mycontroller;
 
 import java.util.HashMap;
@@ -17,8 +24,15 @@ public class MyAIController extends CarController{
 	private boolean isFollowingWall = false; // This is initialized when the car sticks to a wall.
 	private WorldSpatial.RelativeDirection lastTurnDirection = null; // Shows the last turn direction the car takes.
 	private boolean isTurningLeft = false;
-	private boolean isTurningRight = false; 
+	private boolean isTurningRight = false;
 	private WorldSpatial.Direction previousState = null; // Keeps track of the previous state
+	
+	// New Attributes
+	private boolean isThreePointTurning = false;
+	private boolean isUTurning = false;
+	private boolean isReversingOut = false;
+	private String state;
+	private Coordinate bestPosition;
 	
 	// Car Speed to move at
 	private final float CAR_SPEED = 3;
