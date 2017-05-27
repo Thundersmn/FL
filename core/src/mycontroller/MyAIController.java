@@ -412,7 +412,7 @@ public class MyAIController extends CarController{
 	}
 	
 	/**
-	 * Calculating the score of the traps
+	 * Calculating the score of the traps, more or less the damage they deal to the car
 	 * @param currentView
 	 * @return
 	 */
