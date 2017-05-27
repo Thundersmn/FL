@@ -385,5 +385,111 @@ public class MyAIController extends CarController{
 		}
 		return false;
 	}
+	
+	/* OWN METHODS */
+	
+	private void setState(String stateToBe) {
+		this.state = stateToBe;
+	}
+	/**
+	 * Check if trap is ahead
+	 * @param currentView
+	 * @return
+	 */
+	private boolean isTrapAhead(HashMap<Coordinate, MapTile> currentView) {
+		// TODO
+		return false;
+	}
+	
+	/**
+	 * Check if encountering dead end
+	 * @param currentView
+	 * @return
+	 */
+	private boolean isInDeadEnd(HashMap<Coordinate, MapTile> currentView) {
+		// TODO
+		return false;
+	}
+	
+	/**
+	 * Calculating the score of the traps
+	 * @param currentView
+	 * @return
+	 */
+	private int scoreOfTraps(HashMap<Coordinate, MapTile> currentView) {
+		// TODO
+		return 0;
+	}
+	
+	/**
+	 * Setting the best position the car can be
+	 * @param position
+	 * @return
+	 */
+	private void setBestPosition(Coordinate position) {
+		// TODO
+	}
+	
+	/**
+	 * Move the car to the best position
+	 * @param position
+	 * @return
+	 */
+	private void moveToBestPosition(Coordinate position) {
+		// TODO
+	}
+	
+	/**
+	 * Checks if the car can proceed, basically seeing if there is a trap or wall up ahead
+	 * Previously named carGo
+	 * @param orientation
+	 * @param currentView
+	 * @return
+	 */
+	private boolean isTrapOrWallAhead(WorldSpatial.Direction orientation, HashMap<Coordinate, MapTile> currentView) {
+		// TODO
+		return false;
+	}
+	
+	/**
+	 * Checks if the car is able to turn to the right
+	 * @param orientation
+	 * @param currentView
+	 * @return
+	 */
+	private boolean isOkToTurnRight(WorldSpatial.Direction orientation, HashMap<Coordinate, MapTile> currentView) {
+		// TODO
+		return false;
+	}
+	
+	/**
+	 * Use the 3-point turn on the car
+	 * @param orientation
+	 * @param delta
+	 * @return
+	 */
+	private void applyThreePointTurn(WorldSpatial.Direction orientation, float delta) {
+		// TODO
+	}
+
+	/**
+	 * Use a U-Turn on the car
+	 * @param orientation
+	 * @param delta
+	 * @return
+	 */
+	private void applyUTurn(WorldSpatial.Direction orientation, float delta) {
+		// TODO
+	}
+	
+	/**
+	 * Have the car reverse out
+	 * @param orientation
+	 * @param delta
+	 * @return
+	 */
+	private void applyReverseOut(WorldSpatial.Direction orientation, float delta) {
+		// TODO
+	}
 
 }
