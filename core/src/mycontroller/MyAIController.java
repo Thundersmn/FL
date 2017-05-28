@@ -11,28 +11,79 @@
 package mycontroller;
 
 import java.util.HashMap;
-import controller.AIController;
+import java.util.LinkedList;
+
+import controller.CarController;
 import tiles.MapTile;
 import utilities.Coordinate;
 import world.Car;
 import world.WorldSpatial;
+import world.WorldSpatial.RelativeDirection;
 
-public class MyAIController extends AIController{
+public class MyAIController extends CarController{
 	
-	private static int countAtIsFollowing=0;
-	private static int countAtNotFollowing=0;
-	// New Attributes
-	private boolean onTheWayOut = false; // was in sequence diagram but forgot to include in class diagram
+	// ATTRIBUTES FROM AIController CLASS
+	// How many minimum units the wall is away from the player.
+	private int wallSensitivity = 2;
+	
+	
+	private boolean isFollowingWall = false; // This is initialized when the car sticks to a wall.
+	private WorldSpatial.RelativeDirection lastTurnDirection = null; // Shows the last turn direction the car takes.
+	private boolean isTurningLeft = false;
+	private boolean isTurningRight = false; 
+	private WorldSpatial.Direction previousState = null; // Keeps track of the previous state
+	
+	// Car Speed to move at
+	private final float CAR_SPEED = 3;
+	
+	// Offset used to differentiate between 0 and 360 degrees
+	private int EAST_THRESHOLD = 3;
+	
+	// OWN ATTRIBUTES FROM THIS POINT
+	
+	// Need to use these so car will not speed up too quickly when turning into trap
+	// Some instances they are magic numbers since they were used for testing and due to time constraints
+	private static final int DIVIDE_CAR_SPEED_BY_3 = 3;
+	private static final int DIVIDE_CAR_SPEED_BY_2 = 2;
+	
+	// Attributes for reversing
+	private boolean onTheWayOut = false; // was in sequence diagram but was not included in class diagram
 	private boolean isThreePointTurning = false;
 	private boolean isUTurning = false;
 	private boolean isReversingOut = false;
-	// Previously called state in sequence diagram, also changed to an enum from a String
-	private statesForTraps currStateForTraps = statesForTraps.IDLE; 
-	private Coordinate bestPosition;
 	
-	/* enum for possible states when dealing with traps, default is IDLE*/
-	private enum statesForTraps { IDLE, SEARCHING, END }
+	// Relate to Traps
+	private Coordinate bestPosition;
+	private int bestScore = 100;
+	
+	// used to check whether the right turn is finished
+	private WorldSpatial.Direction directionAfterTurnRight;
+	private WorldSpatial.Direction directionAfterTurnLeft;
+	
+	/**
+	 * enum for possible states when dealing with traps
+	 * IDLE no traps nearby
+	 * TURNING_RIGHT when trap ahead and the road is enough to turn AND no trap at right side, then turn right
+	 * SERACHING after turning right, try to find a best place to turn left
+	 * TURNING_LEFT as per title
+	 * BACK go back to best place
+	 * STOP stop at best place
+	 * PASSING use the fastest speed pass the trap
+	 * END after passing the trap, we need to slow down
+	 *
+	 */
+	private enum StatesForTraps { IDLE, TURNING_RIGHT, SEARCHING, TURNING_LEFT, BACK, STOP, PASSING, END }
 
+	/* Previously called state in sequence diagram, also changed to an enum from a String */
+	private StatesForTraps currStateForTraps = StatesForTraps.IDLE; 
+	
+	
+	/** 
+	 * enum for RelativeDirection
+	 * Had our own one here in MyAIController since we cannot modify World.Spatial
+	 * in the world package, which is what we done previously
+	 * */
+	private static enum RelativeDirection { FRONT, BACK, LEFT, RIGHT }
 	public MyAIController(Car car) {
 		super(car);
 	}
@@ -46,68 +97,470 @@ public class MyAIController extends AIController{
 		
 		
 		checkStateChange();
+		
+		// DO OUR SEQ DIAGRAM SHIT HERE!	
+		if (currStateForTraps == StatesForTraps.IDLE && isTrapAhead(currentView, getOrientation())) {
+
+			
+			int roadWidth = getRoadWidth(getOrientation(), currentView);
+			LinkedList<MapTile> tilesRight = getViewOfASide(RelativeDirection.RIGHT, getOrientation(),
+					currentView);
+			// the road is too narrow to turn or the tile on the right side is
+			// trap
+			// just go through
+			if (roadWidth == 1 || tilesRight.get(0).getName().equals("Trap")) {
+				currStateForTraps = StatesForTraps.PASSING;
+				return;
+			}
+
+			directionAfterTurnRight = getDirectionAfterTurnRight(getOrientation());
+			currStateForTraps = StatesForTraps.TURNING_RIGHT;
+			bestPosition = new Coordinate(getPosition());
+
+			bestScore = damageFromTraps(RelativeDirection.LEFT, currentView, getOrientation());
+			return;
+		}
+		if (currStateForTraps == StatesForTraps.TURNING_RIGHT) {
+			if (getVelocity() < (CAR_SPEED / DIVIDE_CAR_SPEED_BY_3)) {
+				applyForwardAcceleration();
+			}
+			if (getOrientation() != directionAfterTurnRight) {
+				lastTurnDirection = WorldSpatial.RelativeDirection.RIGHT;
+				applyRightTurn(getOrientation(), delta);
+			} else {
+				currStateForTraps = StatesForTraps.SEARCHING;
+			}
+			return;
+		}
+		if (currStateForTraps == StatesForTraps.SEARCHING) {
+			if (isTrapOrWallAhead(getOrientation(), currentView)) {
+				currStateForTraps = StatesForTraps.BACK;
+				return;
+			}
+			// accelerate
+			if (getVelocity() < (CAR_SPEED / DIVIDE_CAR_SPEED_BY_3)) {
+				applyForwardAcceleration();
+			}
+			int score = damageFromTraps(RelativeDirection.LEFT, currentView, getOrientation());
+			System.out.println(score);
+			// no traps
+			if (score == 0) {
+				currStateForTraps = StatesForTraps.TURNING_LEFT;
+				directionAfterTurnLeft = getDirectionAfterTurnLeft(getOrientation());
+				return;
+			}
+			Coordinate currentPosition = new Coordinate(getPosition());
+			if(currentPosition.equals(bestPosition)){
+				bestPosition = currentPosition;
+			}
+			// better place with less traps
+			if (score < bestScore) {
+
+				bestScore = score;
+				bestPosition = currentPosition;
+			}
+			return;
+		}
+
+		// go back to the best place
+		if (currStateForTraps == StatesForTraps.BACK) {
+			Coordinate currentPosition = new Coordinate(getPosition());
+
+
+			//if (currentPosition.shouldBrake(bestPosition,getOrientation(), getVelocity())) {
+
+				//currStateForTraps = StatesForTraps.STOP;
+				
+			//} else {
+				// Backward accelerate
+			//	if (getVelocity() < (CAR_SPEED)) {
+			//		applyReverseAcceleration();
+			//	}
+			//	return;
+			//}
+
+		}
+		
+		if(currStateForTraps == StatesForTraps.STOP){
+			if (getVelocity() != 0) {
+				applyBrake();
+				return;
+			} else {
+				Coordinate currentPosition = new Coordinate(getPosition());
+				currStateForTraps = StatesForTraps.TURNING_LEFT;
+				directionAfterTurnLeft = getDirectionAfterTurnLeft(getOrientation());
+				return;
+			}
+		}
+
+		if (currStateForTraps == StatesForTraps.TURNING_RIGHT) {
+
+			if (getOrientation() != directionAfterTurnLeft) {
+				if (getVelocity() < (CAR_SPEED / DIVIDE_CAR_SPEED_BY_2)) {
+					applyForwardAcceleration();
+				}
+
+				lastTurnDirection = WorldSpatial.RelativeDirection.LEFT;
+				applyLeftTurn(getOrientation(), delta);
+				return;
+			} else {
+				currStateForTraps = StatesForTraps.PASSING;
+			}
+			return;
+		}
+
+		// use the fastest speed possible to traverse it
+		if (currStateForTraps == StatesForTraps.PASSING) {
+			if (getVelocity() < (CAR_SPEED) / 1.3) {
+				applyForwardAcceleration();
+				return;
+			} else {
+				currStateForTraps = StatesForTraps.END;
+				return;
+			}
+		}
+
+		// cause the speed is very fast in order to pass the traps
+		// after we traverse the trap, we need to slow down
+		if (currStateForTraps == StatesForTraps.END) {
+			if (getVelocity() > (CAR_SPEED) / 2) {
+				applyBrake();
+				return;
+			} else {
+				currStateForTraps = StatesForTraps.IDLE;
+				return;
+			}
+		}
+
+		
 		// If you are not following a wall initially, find a wall to stick to!
-		if(!getIsFollowingWall()){
-			if(getVelocity() < getCAR_SPEED()){
+		if(!isFollowingWall){
+			if(getVelocity() < CAR_SPEED){
 				applyForwardAcceleration();
 			}
 			// Turn towards the north
 			if(!getOrientation().equals(WorldSpatial.Direction.NORTH)){
-				setLastTurnDirection(WorldSpatial.RelativeDirection.LEFT);
+				lastTurnDirection = WorldSpatial.RelativeDirection.LEFT;
 				applyLeftTurn(getOrientation(),delta);
 			}
 			if(checkNorth(currentView)){
 				// Turn right until we go back to east!
 				if(!getOrientation().equals(WorldSpatial.Direction.EAST)){
-					setLastTurnDirection(WorldSpatial.RelativeDirection.RIGHT);
+					lastTurnDirection = WorldSpatial.RelativeDirection.RIGHT;
 					applyRightTurn(getOrientation(),delta);
 				}
 				else{
-					setIsFollowingWall(true);
+					isFollowingWall = true;
 				}
 			}
-			countAtNotFollowing++;
-			System.out.println("Count for Not Following: " + countAtNotFollowing);
 		}
 		// Once the car is already stuck to a wall, apply the following logic
 		else{
 			
 			// Readjusts the car if it is not aligned.
-			readjust(getLastTurnDirection(),delta);
+			readjust(lastTurnDirection,delta);
 			
-			if(getIsTurningRight()){
+			if(isTurningRight){
 				applyRightTurn(getOrientation(),delta);
 			}
-			else if(getIsTurningLeft()){
+			else if(isTurningLeft){
 				// Apply the left turn if you are not currently near a wall.
 				if(!checkFollowingWall(getOrientation(),currentView)){
 					applyLeftTurn(getOrientation(),delta);
 				}
 				else{
-					setIsTurningLeft(false);
+					isTurningLeft = false;
 				}
 			}
 			// Try to determine whether or not the car is next to a wall.
 			else if(checkFollowingWall(getOrientation(),currentView)){
 				// Maintain some velocity
-				if(getVelocity() < getCAR_SPEED()){
+				if(getVelocity() < CAR_SPEED){
 					applyForwardAcceleration();
 				}
 				// If there is wall ahead, turn right!
 				if(checkWallAhead(getOrientation(),currentView)){
-					setLastTurnDirection(WorldSpatial.RelativeDirection.RIGHT);
-					setIsTurningRight(true);				
+					lastTurnDirection = WorldSpatial.RelativeDirection.RIGHT;
+					isTurningRight = true;				
 					
 				}
 
 			}
 			// This indicates that I can do a left turn if I am not turning right
 			else{
-				setLastTurnDirection(WorldSpatial.RelativeDirection.LEFT);
-				setIsTurningLeft(true);
+				lastTurnDirection = WorldSpatial.RelativeDirection.LEFT;
+				isTurningLeft = true;
 			}
 		}
 		
+	}
+	
+	/* METHODS FROM AIController CLASS */
+	/**
+	 * Readjust the car to the orientation we are in.
+	 * @param lastTurnDirection
+	 * @param delta
+	 */
+	private void readjust(WorldSpatial.RelativeDirection lastTurnDirection, float delta) {
+		if(lastTurnDirection != null){
+			if(!isTurningRight && lastTurnDirection.equals(WorldSpatial.RelativeDirection.RIGHT)){
+				adjustRight(getOrientation(),delta);
+			}
+			else if(!isTurningLeft && lastTurnDirection.equals(WorldSpatial.RelativeDirection.LEFT)){
+				adjustLeft(getOrientation(),delta);
+			}
+		}
+		
+	}
+	
+	/**
+	 * Try to orient myself to a degree that I was supposed to be at if I am
+	 * misaligned.
+	 */
+	private void adjustLeft(WorldSpatial.Direction orientation, float delta) {
+		
+		switch(orientation){
+		case EAST:
+			if(getAngle() > WorldSpatial.EAST_DEGREE_MIN+EAST_THRESHOLD){
+				turnRight(delta);
+			}
+			break;
+		case NORTH:
+			if(getAngle() > WorldSpatial.NORTH_DEGREE){
+				turnRight(delta);
+			}
+			break;
+		case SOUTH:
+			if(getAngle() > WorldSpatial.SOUTH_DEGREE){
+				turnRight(delta);
+			}
+			break;
+		case WEST:
+			if(getAngle() > WorldSpatial.WEST_DEGREE){
+				turnRight(delta);
+			}
+			break;
+			
+		default:
+			break;
+		}
+		
+	}
+
+	private void adjustRight(WorldSpatial.Direction orientation, float delta) {
+		switch(orientation){
+		case EAST:
+			if(getAngle() > WorldSpatial.SOUTH_DEGREE && getAngle() < WorldSpatial.EAST_DEGREE_MAX){
+				turnLeft(delta);
+			}
+			break;
+		case NORTH:
+			if(getAngle() < WorldSpatial.NORTH_DEGREE){
+				turnLeft(delta);
+			}
+			break;
+		case SOUTH:
+			if(getAngle() < WorldSpatial.SOUTH_DEGREE){
+				turnLeft(delta);
+			}
+			break;
+		case WEST:
+			if(getAngle() < WorldSpatial.WEST_DEGREE){
+				turnLeft(delta);
+			}
+			break;
+			
+		default:
+			break;
+		}
+		
+	}
+	
+	/**
+	 * Checks whether the car's state has changed or not, stops turning if it
+	 *  already has.
+	 */
+	private void checkStateChange() {
+		if(previousState == null){
+			previousState = getOrientation();
+		}
+		else{
+			if(previousState != getOrientation()){
+				if(isTurningLeft){
+					isTurningLeft = false;
+				}
+				if(isTurningRight){
+					isTurningRight = false;
+				}
+				previousState = getOrientation();
+			}
+		}
+	}
+	
+	/**
+	 * Turn the car counter clock wise (think of a compass going counter clock-wise)
+	 */
+	private void applyLeftTurn(WorldSpatial.Direction orientation, float delta) {
+		switch(orientation){
+		case EAST:
+			if(!getOrientation().equals(WorldSpatial.Direction.NORTH)){
+				turnLeft(delta);
+			}
+			break;
+		case NORTH:
+			if(!getOrientation().equals(WorldSpatial.Direction.WEST)){
+				turnLeft(delta);
+			}
+			break;
+		case SOUTH:
+			if(!getOrientation().equals(WorldSpatial.Direction.EAST)){
+				turnLeft(delta);
+			}
+			break;
+		case WEST:
+			if(!getOrientation().equals(WorldSpatial.Direction.SOUTH)){
+				turnLeft(delta);
+			}
+			break;
+		default:
+			break;
+		
+		}
+		
+	}
+	
+	/**
+	 * Turn the car clock wise (think of a compass going clock-wise)
+	 */
+	private void applyRightTurn(WorldSpatial.Direction orientation, float delta) {
+		switch(orientation){
+		case EAST:
+			if(!getOrientation().equals(WorldSpatial.Direction.SOUTH)){
+				turnRight(delta);
+			}
+			break;
+		case NORTH:
+			if(!getOrientation().equals(WorldSpatial.Direction.EAST)){
+				turnRight(delta);
+			}
+			break;
+		case SOUTH:
+			if(!getOrientation().equals(WorldSpatial.Direction.WEST)){
+				turnRight(delta);
+			}
+			break;
+		case WEST:
+			if(!getOrientation().equals(WorldSpatial.Direction.NORTH)){
+				turnRight(delta);
+			}
+			break;
+		default:
+			break;
+		
+		}
+		
+	}
+
+	/**
+	 * Check if you have a wall in front of you!
+	 * @param orientation the orientation we are in based on WorldSpatial
+	 * @param currentView what the car can currently see
+	 * @return
+	 */
+	private boolean checkWallAhead(WorldSpatial.Direction orientation, HashMap<Coordinate, MapTile> currentView){
+		switch(orientation){
+		case EAST:
+			return checkEast(currentView);
+		case NORTH:
+			return checkNorth(currentView);
+		case SOUTH:
+			return checkSouth(currentView);
+		case WEST:
+			return checkWest(currentView);
+		default:
+			return false;
+		
+		}
+	}
+	
+	/**
+	 * Check if the wall is on your left hand side given your orientation
+	 * @param orientation
+	 * @param currentView
+	 * @return
+	 */
+	private boolean checkFollowingWall(WorldSpatial.Direction orientation, HashMap<Coordinate, MapTile> currentView) {
+		
+		switch(orientation){
+		case EAST:
+			return checkNorth(currentView);
+		case NORTH:
+			return checkWest(currentView);
+		case SOUTH:
+			return checkEast(currentView);
+		case WEST:
+			return checkSouth(currentView);
+		default:
+			return false;
+		}
+		
+	}
+	
+
+	/**
+	 * Method below just iterates through the list and check in the correct coordinates.
+	 * i.e. Given your current position is 10,10
+	 * checkEast will check up to wallSensitivity amount of tiles to the right.
+	 * checkWest will check up to wallSensitivity amount of tiles to the left.
+	 * checkNorth will check up to wallSensitivity amount of tiles to the top.
+	 * checkSouth will check up to wallSensitivity amount of tiles below.
+	 */
+	public boolean checkEast(HashMap<Coordinate, MapTile> currentView){
+		// Check tiles to my right
+		Coordinate currentPosition = new Coordinate(getPosition());
+		for(int i = 0; i <= wallSensitivity; i++){
+			MapTile tile = currentView.get(new Coordinate(currentPosition.x+i, currentPosition.y));
+			if(tile.getName().equals("Wall")){
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	public boolean checkWest(HashMap<Coordinate,MapTile> currentView){
+		// Check tiles to my left
+		Coordinate currentPosition = new Coordinate(getPosition());
+		for(int i = 0; i <= wallSensitivity; i++){
+			MapTile tile = currentView.get(new Coordinate(currentPosition.x-i, currentPosition.y));
+			if(tile.getName().equals("Wall")){
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	public boolean checkNorth(HashMap<Coordinate,MapTile> currentView){
+		// Check tiles to towards the top
+		Coordinate currentPosition = new Coordinate(getPosition());
+		for(int i = 0; i <= wallSensitivity; i++){
+			MapTile tile = currentView.get(new Coordinate(currentPosition.x, currentPosition.y+i));
+			if(tile.getName().equals("Wall")){
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	public boolean checkSouth(HashMap<Coordinate,MapTile> currentView){
+		// Check tiles towards the bottom
+		Coordinate currentPosition = new Coordinate(getPosition());
+		for(int i = 0; i <= wallSensitivity; i++){
+			MapTile tile = currentView.get(new Coordinate(currentPosition.x, currentPosition.y-i));
+			if(tile.getName().equals("Wall")){
+				return true;
+			}
+		}
+		return false;
 	}
 	
 	/* OWN METHODS */
@@ -115,31 +568,54 @@ public class MyAIController extends AIController{
 	/**
 	 * Check if trap is ahead
 	 * @param currentView
+	 * @param orientation
 	 * @return
 	 */
-	private boolean isTrapAhead(HashMap<Coordinate, MapTile> currentView) {
+	private boolean isTrapAhead(HashMap<Coordinate, MapTile> currentView, WorldSpatial.Direction orientation) {
+		LinkedList<MapTile> tilesAhead = getViewOfASide(RelativeDirection.FRONT,orientation,currentView);
+		int sensity = 2;
+		for (int i = 0; i < sensity; i++) {
+			MapTile tile = tilesAhead.get(i);
+			if (tile.getName().equals("Trap")) {
+				return true;
+			}
+			// traps behind the wall do not count
+			else if (tile.getName().equals("Wall")) {
+				return false;
+			}
+		}
+		return false;
+	}
+	
+	/**
+	 * Check if encountering dead end, previously called isInDeadEnd in class diagram
+	 * @param currentView
+	 * @return
+	 */
+	private boolean isDeadEndAhead(HashMap<Coordinate, MapTile> currentView) {
 		// TODO
 		return false;
 	}
 	
 	/**
-	 * Check if encountering dead end
+	 * Calculating the damage traps deal to car, previously called scoreOfTraps
+	 * @param relativeDirection
 	 * @param currentView
 	 * @return
 	 */
-	private boolean isInDeadEnd(HashMap<Coordinate, MapTile> currentView) {
-		// TODO
-		return false;
-	}
-	
-	/**
-	 * Calculating the score of the traps, more or less the damage they deal to the car
-	 * @param currentView
-	 * @return
-	 */
-	private int scoreOfTraps(HashMap<Coordinate, MapTile> currentView) {
-		// TODO
-		return 0;
+	private int damageFromTraps(RelativeDirection relativeDirection, HashMap<Coordinate, MapTile> currentView,
+								WorldSpatial.Direction orientation) {
+		int score = 0;
+		LinkedList<MapTile> tiles = getViewOfASide(relativeDirection, orientation, currentView);
+		for (int i = 0; i < tiles.size(); i++) {
+			MapTile tile = tiles.get(i);
+			if (tile.getName().equals("Trap")) {
+				score += 1;
+			} else if (tile.getName().equals("Wall")) {
+				score += 100;
+			}
+		}
+		return score;
 	}
 	
 	/**
@@ -168,7 +644,19 @@ public class MyAIController extends AIController{
 	 * @return
 	 */
 	private boolean isTrapOrWallAhead(WorldSpatial.Direction orientation, HashMap<Coordinate, MapTile> currentView) {
-		// TODO
+		int sensity = 1;
+		
+		LinkedList<MapTile> tilesAhead = getViewOfASide(RelativeDirection.FRONT,orientation,currentView);
+		for (int i = 0; i < sensity; i++) {
+			MapTile tile = tilesAhead.get(i);
+			if (tile.getName().equals("Trap")) {
+				return true;
+			}
+			// traps behind the wall do not count
+			else if (tile.getName().equals("Wall")) {
+				return true;
+			}
+		}
 		return false;
 	}
 	
@@ -218,9 +706,158 @@ public class MyAIController extends AIController{
 	 */
 	private void applyReverseOut(WorldSpatial.Direction orientation, float delta) {
 		// TODO
-		if(getVelocity() < getCAR_SPEED()){
+		if(getVelocity() < CAR_SPEED){
 			applyReverseAcceleration();
 		}
 	}
 
+	
+	private WorldSpatial.Direction getDirectionAfterTurnRight(WorldSpatial.Direction orientation) {
+		switch (orientation) {
+		case WEST:
+			return WorldSpatial.Direction.NORTH;
+		case NORTH:
+			return WorldSpatial.Direction.EAST;
+		case EAST:
+			return WorldSpatial.Direction.SOUTH;
+		case SOUTH:
+			return WorldSpatial.Direction.WEST;
+		default:
+			return null;
+		}
+	}
+
+	private WorldSpatial.Direction getDirectionAfterTurnLeft(WorldSpatial.Direction orientation) {
+		switch (orientation) {
+		case WEST:
+			return WorldSpatial.Direction.SOUTH;
+		case NORTH:
+			return WorldSpatial.Direction.WEST;
+		case EAST:
+			return WorldSpatial.Direction.NORTH;
+		case SOUTH:
+			return WorldSpatial.Direction.EAST;
+		default:
+			return null;
+		}
+	}
+	
+	/**
+	 * get view of a side (Front, Back, Right, Left) based on the direction (east, west, south, north)
+	 * 
+	 * @param relativeDirection
+	 * @param orientation
+	 * @param currentView
+	 * @return
+	 */
+	private LinkedList<MapTile> getViewOfASide(RelativeDirection relativeDirection,
+			WorldSpatial.Direction orientation, HashMap<Coordinate, MapTile> currentView) {
+		switch (orientation) {
+		case WEST:
+			switch (relativeDirection) {
+			case FRONT:
+				return getViewOfADirection(WorldSpatial.Direction.WEST, currentView);
+			case BACK:
+				return getViewOfADirection(WorldSpatial.Direction.EAST, currentView);
+			case RIGHT:
+				return getViewOfADirection(WorldSpatial.Direction.NORTH, currentView);
+			case LEFT:
+				return getViewOfADirection(WorldSpatial.Direction.SOUTH, currentView);
+			}
+		case EAST:
+			switch (relativeDirection) {
+			case FRONT:
+				return getViewOfADirection(WorldSpatial.Direction.EAST, currentView);
+			case BACK:
+				return getViewOfADirection(WorldSpatial.Direction.WEST, currentView);
+			case RIGHT:
+				return getViewOfADirection(WorldSpatial.Direction.SOUTH, currentView);
+			case LEFT:
+				return getViewOfADirection(WorldSpatial.Direction.NORTH, currentView);
+			}
+		case SOUTH:
+			switch (relativeDirection) {
+			case FRONT:
+				return getViewOfADirection(WorldSpatial.Direction.SOUTH, currentView);
+			case BACK:
+				return getViewOfADirection(WorldSpatial.Direction.NORTH, currentView);
+			case RIGHT:
+				return getViewOfADirection(WorldSpatial.Direction.WEST, currentView);
+			case LEFT:
+				return getViewOfADirection(WorldSpatial.Direction.EAST, currentView);
+			}
+		case NORTH:
+			switch (relativeDirection) {
+			case FRONT:
+				return getViewOfADirection(WorldSpatial.Direction.NORTH, currentView);
+			case BACK:
+				return getViewOfADirection(WorldSpatial.Direction.SOUTH, currentView);
+			case RIGHT:
+				return getViewOfADirection(WorldSpatial.Direction.EAST, currentView);
+			case LEFT:
+				return getViewOfADirection(WorldSpatial.Direction.WEST, currentView);
+			}
+
+
+		}
+		return null;
+	}
+	
+	/**
+	 * get view of a certain direction (east, west, south, north)
+	 * 
+	 * @param orientation
+	 * @param currentView
+	 * @return
+	 */
+	private LinkedList<MapTile> getViewOfADirection(WorldSpatial.Direction orientation,
+			HashMap<Coordinate, MapTile> currentView) {
+		Coordinate currentPosition = new Coordinate(getPosition());
+		LinkedList<MapTile> tiles = new LinkedList<MapTile>();
+		switch (orientation) {
+		case EAST:
+			for (int i = 1; i <= Car.VIEW_SQUARE; i++) {
+				tiles.addLast(currentView.get(new Coordinate(currentPosition.x + i, currentPosition.y)));
+			}
+			break;
+		case WEST:
+			for (int i = 1; i <= Car.VIEW_SQUARE; i++) {
+				tiles.addLast(currentView.get(new Coordinate(currentPosition.x - i, currentPosition.y)));
+			}
+			break;
+		case NORTH:
+			for (int i = 1; i <= Car.VIEW_SQUARE; i++) {
+				tiles.addLast(currentView.get(new Coordinate(currentPosition.x, currentPosition.y + i)));
+			}
+			break;
+		case SOUTH:
+			for (int i = 1; i <= Car.VIEW_SQUARE; i++) {
+				tiles.addLast(currentView.get(new Coordinate(currentPosition.x, currentPosition.y - i)));
+			}
+			break;
+		}
+		return tiles;
+	}
+	
+	private int getRoadWidth(WorldSpatial.Direction orientation, HashMap<Coordinate, MapTile> currentView) {
+		int roadWidth = 0;
+		LinkedList<MapTile> tilesLeft = getViewOfASide(RelativeDirection.LEFT, orientation, currentView);
+		LinkedList<MapTile> tilesRight = getViewOfASide(RelativeDirection.RIGHT, orientation, currentView);
+		int i, j;
+		for (i = 0; i < tilesLeft.size(); i++) {
+			MapTile tile = tilesLeft.get(i);
+			if (tile.getName().equals("Wall")) {
+				break;
+			}
+		}
+		for (j = 0; j < tilesRight.size(); j++) {
+			MapTile tile = tilesRight.get(j);
+			if (tile.getName().equals("Wall")) {
+				break;
+			}
+		}
+		roadWidth = i + j - 1;
+		roadWidth = i;
+		return roadWidth;
+	}
 }

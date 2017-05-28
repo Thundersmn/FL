@@ -461,6 +461,16 @@ public class Car extends Sprite{
 		this.velocity = scl;
 
 	}
+	
+	public float normalizeAngle(float angle){
+		float calculatedAngle = angle % 360;
+		calculatedAngle = (calculatedAngle + 360) % 360;
+		if(calculatedAngle > 180){
+			calculatedAngle -= 360;
+		}
+		
+		return Math.abs(calculatedAngle);
+	}
 
 	/** ACCESSIBLE METHODS **/
 	public float getVelocity(){
@@ -492,23 +502,15 @@ public class Car extends Sprite{
 
 		boolean reachable = true;
 
-		// Convert degree to the right orientation based on turning direction
-		// Going right are negative values while going left is positive.
-		if(turnDirection.equals(WorldSpatial.RelativeDirection.RIGHT) && degree > 0){
-			degree = 0 - degree;
-		}
 
-		if(turnDirection.equals(WorldSpatial.RelativeDirection.LEFT) && degree < 0){
-			degree = 360 - degree;
-		}
 
 		float timeDifference = -1;
-		if(degree > 0){
-			timeDifference = ((Math.abs(currentRotation-degree) % 360 + 360) % 360) / (ROTATING_FACTOR * delta);
-		}
-		else{
-			timeDifference = ((Math.abs(currentRotation+degree) % 360 + 360) % 360) / (ROTATING_FACTOR * delta);
-		}
+		float normalizedRotation = normalizeAngle(currentRotation);
+		float normalizedDegree = normalizeAngle(degree);
+		
+		
+		timeDifference = ( Math.abs(normalizedRotation-normalizedDegree) / (ROTATING_FACTOR * delta));
+
 				
 
 		for(int i = 0; i < (int) Math.round(timeDifference); i++){
