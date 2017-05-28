@@ -19,6 +19,8 @@ import world.WorldSpatial;
 
 public class MyAIController extends AIController{
 	
+	private static int countAtIsFollowing=0;
+	private static int countAtNotFollowing=0;
 	// New Attributes
 	private boolean onTheWayOut = false; // was in sequence diagram but forgot to include in class diagram
 	private boolean isThreePointTurning = false;
@@ -28,6 +30,8 @@ public class MyAIController extends AIController{
 	private statesForTraps currStateForTraps = statesForTraps.IDLE; 
 	private Coordinate bestPosition;
 	
+	/* enum for possible states when dealing with traps, default is IDLE*/
+	private enum statesForTraps { IDLE, SEARCHING, END }
 
 	public MyAIController(Car car) {
 		super(car);
@@ -42,8 +46,6 @@ public class MyAIController extends AIController{
 		
 		
 		checkStateChange();
-
-
 		// If you are not following a wall initially, find a wall to stick to!
 		if(!getIsFollowingWall()){
 			if(getVelocity() < getCAR_SPEED()){
@@ -64,6 +66,8 @@ public class MyAIController extends AIController{
 					setIsFollowingWall(true);
 				}
 			}
+			countAtNotFollowing++;
+			System.out.println("Count for Not Following: " + countAtNotFollowing);
 		}
 		// Once the car is already stuck to a wall, apply the following logic
 		else{
@@ -107,9 +111,6 @@ public class MyAIController extends AIController{
 	}
 	
 	/* OWN METHODS */
-	
-	/* enum for possible states when dealing with traps, default is IDLE*/
-	private enum statesForTraps { IDLE, SEARCHING, END }
 	
 	/**
 	 * Check if trap is ahead
@@ -198,8 +199,15 @@ public class MyAIController extends AIController{
 	 * @param delta
 	 * @return
 	 */
-	private void applyUTurn(WorldSpatial.Direction orientation, float delta) {
-		// TODO
+	private void applyUTurn(WorldSpatial.Direction orientation, HashMap<Coordinate, MapTile> currentView, float delta) {
+		// Check: See if sticking to left or right side of wall
+		// apply u-turn toward left or right, depending on check
+		if ( checkFollowingWall(getOrientation(),currentView) ) {
+			applyRightTurn(orientation, delta);
+		}
+		if ( !checkFollowingWall(getOrientation(),currentView) ) {
+			applyLeftTurn(orientation, delta);
+		}
 	}
 	
 	/**
@@ -210,6 +218,9 @@ public class MyAIController extends AIController{
 	 */
 	private void applyReverseOut(WorldSpatial.Direction orientation, float delta) {
 		// TODO
+		if(getVelocity() < getCAR_SPEED()){
+			applyReverseAcceleration();
+		}
 	}
 
 }
