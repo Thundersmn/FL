@@ -402,6 +402,10 @@ public class AIController extends CarController {
 	public void setIsTurningLeft(boolean isTurningLeft) {
 		this.isTurningLeft = isTurningLeft;
 	}
+
+	public float getCAR_SPEED() {
+		return this.CAR_SPEED;
+	}
 	
 	
 	

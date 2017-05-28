@@ -11,8 +11,6 @@
 package mycontroller;
 
 import java.util.HashMap;
-
-import controller.CarController;
 import controller.AIController;
 import tiles.MapTile;
 import utilities.Coordinate;
@@ -28,12 +26,6 @@ public class MyAIController extends AIController{
 	// Previously called state in sequence diagram, also changed to an enum from a String
 	private statesForTraps currStateForTraps = statesForTraps.IDLE; 
 	private Coordinate bestPosition;
-	
-	// Car Speed to move at
-	private final float CAR_SPEED = 3;
-	
-	// Offset used to differentiate between 0 and 360 degrees
-	private int EAST_THRESHOLD = 3;
 	
 
 	public MyAIController(Car car) {
@@ -53,7 +45,7 @@ public class MyAIController extends AIController{
 
 		// If you are not following a wall initially, find a wall to stick to!
 		if(!getIsFollowingWall()){
-			if(getVelocity() < CAR_SPEED){
+			if(getVelocity() < getCAR_SPEED()){
 				applyForwardAcceleration();
 			}
 			// Turn towards the north
@@ -75,7 +67,7 @@ public class MyAIController extends AIController{
 		// Once the car is already stuck to a wall, apply the following logic
 		else{
 			
-			// Readjust the car if it is misaligned.
+			// Readjusts the car if it is not aligned.
 			readjust(getLastTurnDirection(),delta);
 			
 			if(getIsTurningRight()){
@@ -93,7 +85,7 @@ public class MyAIController extends AIController{
 			// Try to determine whether or not the car is next to a wall.
 			else if(checkFollowingWall(getOrientation(),currentView)){
 				// Maintain some velocity
-				if(getVelocity() < CAR_SPEED){
+				if(getVelocity() < getCAR_SPEED()){
 					applyForwardAcceleration();
 				}
 				// If there is wall ahead, turn right!
