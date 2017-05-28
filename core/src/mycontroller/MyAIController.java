@@ -1,6 +1,7 @@
 /**
  * By Michael Lee (563550)
- * 
+ * 	  Mengnan Shi (802123)
+ * 	  Xuelin Zhao (801736)
  * Package largely adapted from AIController in controller package
  * but with added attributes and methods to implement a better behaviour model
  * In our sequence diagram, we had MyAIController be a child class of CarController but for the
@@ -18,7 +19,6 @@ import tiles.MapTile;
 import utilities.Coordinate;
 import world.Car;
 import world.WorldSpatial;
-import world.WorldSpatial.RelativeDirection;
 
 public class MyAIController extends CarController{
 	
@@ -46,7 +46,8 @@ public class MyAIController extends CarController{
 	private static final int DIVIDE_CAR_SPEED_BY_3 = 3;
 	private static final int DIVIDE_CAR_SPEED_BY_2 = 2;
 	
-	// Attributes for reversing
+	// Attributes for reversing, encoutering dead ends
+	private boolean isDeadEnd = false;
 	private boolean onTheWayOut = false; // was in sequence diagram but was not included in class diagram
 	private boolean isThreePointTurning = false;
 	private boolean isUTurning = false;
@@ -60,7 +61,6 @@ public class MyAIController extends CarController{
 	private WorldSpatial.Direction directionAfterTurnRight;
 	private WorldSpatial.Direction directionAfterTurnLeft;
 	
-	private Coordinate lastPosition = new Coordinate(0,0);
 	/**
 	 * enum for possible states when dealing with traps
 	 * IDLE no traps nearby
@@ -97,12 +97,29 @@ public class MyAIController extends CarController{
 		
 		checkStateChange();
 		
-		System.out.println(currStateForTraps);
-		// DO OUR SEQ DIAGRAM SHIT HERE!	
+		int roadWidth = getRoadWidth(getOrientation(), currentView);
+		
+		isDeadEnd = isDeadEndAhead(getOrientation(), currentView);
+		
+		// check if car is at dead end
+		if (isDeadEnd) {
+			if (roadWidth <= 1) {
+				// Reverse the car, road too narrow
+				applyReverseOut();
+			}
+			else if (roadWidth > 1 && roadWidth <= 3) {
+				//not that wide, use 3 point turn
+				applyThreePointTurn(getOrientation(), delta);
+			}
+			else if (roadWidth >= 3) {
+				// Enough width for a U-Turn
+				applyUTurn(getOrientation(), currentView, delta);
+			}
+		}
+		
+		// Detecting Traps here
 		if (currStateForTraps == StatesForTraps.IDLE && isTrapAhead(currentView, getOrientation())) {
-
 			
-			int roadWidth = getRoadWidth(getOrientation(), currentView);
 			LinkedList<MapTile> tilesRight = getViewOfASide(RelativeDirection.RIGHT, getOrientation(),
 					currentView);
 			// the road is too narrow to turn or the tile on the right side is a trap
@@ -205,7 +222,7 @@ public class MyAIController extends CarController{
 
 		// use the fastest speed possible to traverse it
 		if (currStateForTraps == StatesForTraps.PASSING) {
-			if (getVelocity() < CAR_SPEED) {
+			if (getVelocity() < CAR_SPEED / 1.3) {
 				applyForwardAcceleration();
 				return;
 			} else {
@@ -230,7 +247,7 @@ public class MyAIController extends CarController{
 		// If you are not following a wall initially, find a wall to stick to!
 		if(!isFollowingWall){
 			
-			if(getVelocity() < CAR_SPEED){
+			if(getVelocity() < CAR_SPEED / DIVIDE_CAR_SPEED_BY_2){
 				applyForwardAcceleration();
 			}
 			// Turn towards the north
@@ -270,7 +287,7 @@ public class MyAIController extends CarController{
 			// Try to determine whether or not the car is next to a wall.
 			else if(checkFollowingWall(getOrientation(),currentView)){
 				// Maintain some velocity
-				if(getVelocity() < CAR_SPEED / 1.44){
+				if(getVelocity() < CAR_SPEED / DIVIDE_CAR_SPEED_BY_2){
 					applyForwardAcceleration();
 				}
 				// If there is wall ahead, turn right!
@@ -287,16 +304,6 @@ public class MyAIController extends CarController{
 				isTurningLeft = true;
 			}
 		}
-		
-		/* ERROR WITH POSITIONS
-		Coordinate currentposition = new Coordinate(getPosition());
-		System.out.println("STUCK: " + currentposition + " VS. " + lastPosition);
-		if (lastPosition.equals(currentposition)) {
-			// Stuck
-			applyReverseAcceleration();
-		}
-		lastPosition = new Coordinate(getPosition());
-		*/
 	}
 	
 	/* METHODS FROM AIController CLASS */
@@ -593,12 +600,44 @@ public class MyAIController extends CarController{
 	
 	/**
 	 * Check if encountering dead end, previously called isInDeadEnd in class diagram
+	 * @param orientation
 	 * @param currentView
 	 * @return
 	 */
-	private boolean isDeadEndAhead(HashMap<Coordinate, MapTile> currentView) {
-		// TODO
-		return false;
+	private boolean isDeadEndAhead(WorldSpatial.Direction orientation, HashMap<Coordinate, MapTile> currentView) {
+		switch(orientation){
+		case EAST:
+			if (checkEast(currentView) && checkNorth(currentView) && checkSouth(currentView)) {
+				return true;
+			}
+			else {
+				return false;
+			}
+		case NORTH:
+			if (checkNorth(currentView) && checkEast(currentView) && checkWest(currentView)) {
+				return true;
+			}
+			else {
+				return false;
+			}
+		case SOUTH:
+			if (checkSouth(currentView) && checkEast(currentView) && checkWest(currentView)) {
+				return true;
+			}
+			else {
+				return false;
+			}
+		case WEST:
+			if (checkWest(currentView) && checkNorth(currentView) && checkSouth(currentView)) {
+				return true;
+			}
+			else {
+				return false;
+			}
+		default:
+			return false;
+		
+		}
 	}
 	
 	/**
@@ -671,7 +710,7 @@ public class MyAIController extends CarController{
 	 * @return
 	 */
 	private boolean isOkToTurnRight(WorldSpatial.Direction orientation, HashMap<Coordinate, MapTile> currentView) {
-		// TODO
+		// TODO Not time for implementation
 		return false;
 	}
 	
@@ -682,7 +721,7 @@ public class MyAIController extends CarController{
 	 * @return
 	 */
 	private void applyThreePointTurn(WorldSpatial.Direction orientation, float delta) {
-		// TODO
+		// TODO No time for implementation
 	}
 
 	/**
@@ -703,12 +742,12 @@ public class MyAIController extends CarController{
 	}
 	
 	/**
-	 * Have the car reverse out
+	 * Have the car reverse out, no need arguments since reversing
 	 * @param orientation
 	 * @param delta
 	 * @return
 	 */
-	private void applyReverseOut(WorldSpatial.Direction orientation, float delta) {
+	private void applyReverseOut() {
 		// TODO
 		if(getVelocity() < CAR_SPEED){
 			applyReverseAcceleration();
@@ -865,17 +904,16 @@ public class MyAIController extends CarController{
 				break;
 			}
 		}
-		roadWidth = i + j - 1;
-		roadWidth = i;
+		roadWidth = i + j;
 		return roadWidth;
 	}
 	
 	/** 
-	 * Defined in order to use it as keys in a hashmap
-	 * @param other
+	 * Braking function to stop the car
+	 * @param currentposition
+	 * @param bestposition
+	 * @param v
 	 * @param orientation
-	 * @param speed
-	 * @param currentPos
 	 */ 
 	  private boolean shouldBrake(String currentPosition, String bestPosition, float v,
 		      WorldSpatial.Direction orientation) {
@@ -889,8 +927,7 @@ public class MyAIController extends CarController{
 	 
 	    // s = vt + 1/2 * at^2
 	 
-	    float distance = v * t + (0.5F) * a * t * t;	 
-	    System.out.println(distance);	 
+	    float distance = v * t + (0.5F) * a * t * t;
 	    String[] splitCoordinate = currentPosition.split(","); 
 	    float currentPosition_x_float = Float.parseFloat((splitCoordinate[X_POS])); 
 	    float currentPosition_y_float = Float.parseFloat((splitCoordinate[Y_POS]));
