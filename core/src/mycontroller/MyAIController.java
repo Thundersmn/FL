@@ -2,11 +2,18 @@
  * By Michael Lee (563550)
  * 	  Mengnan Shi (802123)
  * 	  Xuelin Zhao (801736)
+ * 
  * Package largely adapted from AIController in controller package
  * but with added attributes and methods to implement a better behaviour model
+ * 
  * In our sequence diagram, we had MyAIController be a child class of CarController but for the
  * implementation, we decided to have it as a child class under AIController since we are
  * making use of its methods and attributes
+ * 
+ * Due to a lack of time constraints, we decided to implement what we can.
+ * We're not sure on how it works to be honest but we've done what we can in our implementation.
+ * We managed to avoid traps somewhat and had a good grasp with handling dead ends.
+ * However, we were not so sure how to handle the speed of the car since that was our main issue.
  */
 
 package mycontroller;
