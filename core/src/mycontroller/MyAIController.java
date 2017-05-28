@@ -16,7 +16,6 @@ import utilities.Coordinate;
 import world.Car;
 import world.WorldSpatial;
 import world.WorldSpatial.Direction;
-import world.WorldSpatial.RelativeDirection;
 
 public class MyAIController extends CarController {
 
@@ -25,14 +24,14 @@ public class MyAIController extends CarController {
 
 	private boolean isFollowingWall = false; // This is initialized when the car
 												// sticks to a wall.
-	private WorldSpatial.RelativeDirection lastTurnDirection = null; // Shows
-																		// the
-																		// last
-																		// turn
-																		// direction
-																		// the
-																		// car
-																		// takes.
+	private RelativeDirection lastTurnDirection = null; // Shows
+														// the
+														// last
+														// turn
+														// direction
+														// the
+														// car
+														// takes.
 	private boolean isTurningLeft = false;
 	private boolean isTurningRight = false;
 	private WorldSpatial.Direction previousState = null; // Keeps track of the
@@ -49,22 +48,29 @@ public class MyAIController extends CarController {
 
 	// a state used to avoid traps
 	/**
-	 * IDLE detecting the trap
-	 * TURNING1 when trap ahead and the road is enough to turn && no trap at right side, then turn right
-	 * SERACHING, after turning right, try to find a best place to turn left
-	 * TURING2 turn left
-	 * BACK go back to best place
-	 * STOP stop at best place
-	 * PASSING use the fastest speed pass the trap
-	 * END after passing the trap, we need to slow down
+	 * IDLE detecting the trap TURNING1 when trap ahead and the road is enough
+	 * to turn && no trap at right side, then turn right SERACHING, after
+	 * turning right, try to find a best place to turn left TURING2 turn left
+	 * BACK go back to best place STOP stop at best place PASSING use the
+	 * fastest speed pass the trap END after passing the trap, we need to slow
+	 * down
 	 *
 	 */
 	public enum State {
 		IDLE, TURNING1, SEARCHING, TURNING2, BACK, STOP, PASSING, END
 	}
 
+	/**
+	 * we understand this should be inside world, but we cannot change other
+	 * code except MyAIController so we put it here right now
+	 * 
+	 */
+	public static enum RelativeDirection {
+		FRONT, LEFT, RIGHT, BACK
+	};
+
 	private State state = State.IDLE;
-	private Coordinate bestPosition;
+	private String bestPosition_string;
 	private int bestScore = 100;
 
 	// Car Speed to move at
@@ -79,7 +85,6 @@ public class MyAIController extends CarController {
 
 	@Override
 	public void update(float delta) {
-		System.out.println(state);
 
 		// Gets what the car can see
 		HashMap<Coordinate, MapTile> currentView = getView();
@@ -87,10 +92,8 @@ public class MyAIController extends CarController {
 
 		if (state == State.IDLE && isTrapAhead(currentView, getOrientation())) {
 
-			
 			int roadWidth = getRoadWidth(getOrientation(), currentView);
-			LinkedList<MapTile> tilesRight = getViewOfASide(WorldSpatial.RelativeDirection.RIGHT, getOrientation(),
-					currentView);
+			LinkedList<MapTile> tilesRight = getViewOfASide(RelativeDirection.RIGHT, getOrientation(), currentView);
 			// the road is too narrow to turn or the tile on the right side is
 			// trap
 			// just go through
@@ -101,9 +104,9 @@ public class MyAIController extends CarController {
 
 			directionAfterTurnRight = getDirectionAfterTurnRight(getOrientation());
 			setState(State.TURNING1);
-			bestPosition = new Coordinate(getPosition());
+			bestPosition_string = getPosition();
 
-			bestScore = scoreOfTrapsOnOneSide(WorldSpatial.RelativeDirection.LEFT, currentView, getOrientation());
+			bestScore = scoreOfTrapsOnOneSide(RelativeDirection.LEFT, currentView, getOrientation());
 			return;
 		}
 		if (state == State.TURNING1) {
@@ -111,7 +114,7 @@ public class MyAIController extends CarController {
 				applyForwardAcceleration();
 			}
 			if (getOrientation() != directionAfterTurnRight) {
-				lastTurnDirection = WorldSpatial.RelativeDirection.RIGHT;
+				lastTurnDirection = RelativeDirection.RIGHT;
 				applyRightTurn(getOrientation(), delta);
 			} else {
 				setState(State.SEARCHING);
@@ -119,6 +122,7 @@ public class MyAIController extends CarController {
 			return;
 		}
 		if (state == State.SEARCHING) {
+
 			if (isTrapOrWallAhead(getOrientation(), currentView)) {
 				setState(State.BACK);
 				return;
@@ -127,8 +131,7 @@ public class MyAIController extends CarController {
 			if (getVelocity() < (CAR_SPEED / 3)) {
 				applyForwardAcceleration();
 			}
-			int score = scoreOfTrapsOnOneSide(WorldSpatial.RelativeDirection.LEFT, currentView, getOrientation());
-			System.out.println(score);
+			int score = scoreOfTrapsOnOneSide(RelativeDirection.LEFT, currentView, getOrientation());
 			// no traps
 			if (score == 0) {
 				setState(State.TURNING2);
@@ -136,27 +139,25 @@ public class MyAIController extends CarController {
 				return;
 			}
 			Coordinate currentPosition = new Coordinate(getPosition());
-			if(currentPosition.equals(bestPosition)){
-				bestPosition = currentPosition;
+			Coordinate bestPosition   = new Coordinate(bestPosition_string);
+			if (currentPosition.equals(bestPosition)) {
+				bestPosition_string = getPosition();
 			}
 			// better place with less traps
 			if (score < bestScore) {
 
 				bestScore = score;
-				bestPosition = currentPosition;
+				bestPosition_string = getPosition();
 			}
 			return;
 		}
 
 		// go back to the best place
 		if (state == State.BACK) {
-			Coordinate currentPosition = new Coordinate(getPosition());
 
-
-			if (currentPosition.shouldBrake(bestPosition,getOrientation(), getVelocity())) {
-
+			if (shouldBrake(getPosition(), bestPosition_string, getVelocity(), getOrientation())) {
 				setState(State.STOP);
-				
+
 			} else {
 				// Backward accelerate
 				if (getVelocity() < (CAR_SPEED)) {
@@ -166,8 +167,8 @@ public class MyAIController extends CarController {
 			}
 
 		}
-		
-		if(state == State.STOP){
+
+		if (state == State.STOP) {
 			if (getVelocity() != 0) {
 				applyBrake();
 				return;
@@ -186,7 +187,7 @@ public class MyAIController extends CarController {
 					applyForwardAcceleration();
 				}
 
-				lastTurnDirection = WorldSpatial.RelativeDirection.LEFT;
+				lastTurnDirection = RelativeDirection.LEFT;
 				applyLeftTurn(getOrientation(), delta);
 				return;
 			} else {
@@ -222,18 +223,18 @@ public class MyAIController extends CarController {
 		if (!isFollowingWall) {
 			// the car_speed is intentionally dropped down to avoid run into the
 			// trap
-			if (getVelocity() <  CAR_SPEED/2) {
+			if (getVelocity() < CAR_SPEED / 2) {
 				applyForwardAcceleration();
 			}
 			// Turn towards the north
 			if (!getOrientation().equals(WorldSpatial.Direction.NORTH)) {
-				lastTurnDirection = WorldSpatial.RelativeDirection.LEFT;
+				lastTurnDirection = RelativeDirection.LEFT;
 				applyLeftTurn(getOrientation(), delta);
 			}
 			if (checkNorth(currentView)) {
 				// Turn right until we go back to east!
 				if (!getOrientation().equals(WorldSpatial.Direction.EAST)) {
-					lastTurnDirection = WorldSpatial.RelativeDirection.RIGHT;
+					lastTurnDirection = RelativeDirection.RIGHT;
 					applyRightTurn(getOrientation(), delta);
 				} else {
 					isFollowingWall = true;
@@ -261,12 +262,12 @@ public class MyAIController extends CarController {
 				// Maintain some velocity
 				// the car_speed is intentionally dropped down to avoid run into
 				// the trap
-				if (getVelocity() < CAR_SPEED/2 ) {
+				if (getVelocity() < CAR_SPEED / 2) {
 					applyForwardAcceleration();
 				}
 				// If there is wall ahead, turn right!
 				if (checkWallAhead(getOrientation(), currentView)) {
-					lastTurnDirection = WorldSpatial.RelativeDirection.RIGHT;
+					lastTurnDirection = RelativeDirection.RIGHT;
 					isTurningRight = true;
 
 				}
@@ -275,7 +276,7 @@ public class MyAIController extends CarController {
 			// This indicates that I can do a left turn if I am not turning
 			// right
 			else {
-				lastTurnDirection = WorldSpatial.RelativeDirection.LEFT;
+				lastTurnDirection = RelativeDirection.LEFT;
 				isTurningLeft = true;
 			}
 		}
@@ -288,11 +289,11 @@ public class MyAIController extends CarController {
 	 * @param lastTurnDirection
 	 * @param delta
 	 */
-	private void readjust(WorldSpatial.RelativeDirection lastTurnDirection, float delta) {
+	private void readjust(RelativeDirection lastTurnDirection, float delta) {
 		if (lastTurnDirection != null) {
-			if (!isTurningRight && lastTurnDirection.equals(WorldSpatial.RelativeDirection.RIGHT)) {
+			if (!isTurningRight && lastTurnDirection.equals(RelativeDirection.RIGHT)) {
 				adjustRight(getOrientation(), delta);
-			} else if (!isTurningLeft && lastTurnDirection.equals(WorldSpatial.RelativeDirection.LEFT)) {
+			} else if (!isTurningLeft && lastTurnDirection.equals(RelativeDirection.LEFT)) {
 				adjustLeft(getOrientation(), delta);
 			}
 		}
@@ -508,7 +509,7 @@ public class MyAIController extends CarController {
 		// Check tiles to my right
 		Coordinate currentPosition = new Coordinate(getPosition());
 		for (int i = 0; i <= wallSensitivity; i++) {
-			MapTile tile = currentView.get(new Coordinate(currentPosition.getX() + i, currentPosition.getY()));
+			MapTile tile = currentView.get(new Coordinate(currentPosition.x + i, currentPosition.y));
 			if (tile.getName().equals("Wall")) {
 				return true;
 			}
@@ -520,7 +521,7 @@ public class MyAIController extends CarController {
 		// Check tiles to my left
 		Coordinate currentPosition = new Coordinate(getPosition());
 		for (int i = 0; i <= wallSensitivity; i++) {
-			MapTile tile = currentView.get(new Coordinate(currentPosition.getX() - i, currentPosition.getY()));
+			MapTile tile = currentView.get(new Coordinate(currentPosition.x - i, currentPosition.y));
 			if (tile.getName().equals("Wall")) {
 				return true;
 			}
@@ -532,7 +533,7 @@ public class MyAIController extends CarController {
 		// Check tiles to towards the top
 		Coordinate currentPosition = new Coordinate(getPosition());
 		for (int i = 0; i <= wallSensitivity; i++) {
-			MapTile tile = currentView.get(new Coordinate(currentPosition.getX(), currentPosition.getY() + i));
+			MapTile tile = currentView.get(new Coordinate(currentPosition.x, currentPosition.y + i));
 			if (tile.getName().equals("Wall")) {
 				return true;
 			}
@@ -544,7 +545,7 @@ public class MyAIController extends CarController {
 		// Check tiles towards the bottom
 		Coordinate currentPosition = new Coordinate(getPosition());
 		for (int i = 0; i <= wallSensitivity; i++) {
-			MapTile tile = currentView.get(new Coordinate(currentPosition.getX(), currentPosition.getY() - i));
+			MapTile tile = currentView.get(new Coordinate(currentPosition.x, currentPosition.y - i));
 			if (tile.getName().equals("Wall")) {
 				return true;
 			}
@@ -565,7 +566,7 @@ public class MyAIController extends CarController {
 	 * @return
 	 */
 	private boolean isTrapAhead(HashMap<Coordinate, MapTile> currentView, WorldSpatial.Direction orientation) {
-		LinkedList<MapTile> tilesAhead = getViewOfASide(WorldSpatial.RelativeDirection.FRONT,orientation,currentView);
+		LinkedList<MapTile> tilesAhead = getViewOfASide(RelativeDirection.FRONT, orientation, currentView);
 		int sensity = 2;
 		for (int i = 0; i < sensity; i++) {
 			MapTile tile = tilesAhead.get(i);
@@ -642,8 +643,8 @@ public class MyAIController extends CarController {
 	 */
 	private boolean isTrapOrWallAhead(WorldSpatial.Direction orientation, HashMap<Coordinate, MapTile> currentView) {
 		int sensity = 1;
-		
-		LinkedList<MapTile> tilesAhead = getViewOfASide(WorldSpatial.RelativeDirection.FRONT,orientation,currentView);
+
+		LinkedList<MapTile> tilesAhead = getViewOfASide(RelativeDirection.FRONT, orientation, currentView);
 		for (int i = 0; i < sensity; i++) {
 			MapTile tile = tilesAhead.get(i);
 			if (tile.getName().equals("Trap")) {
@@ -732,8 +733,8 @@ public class MyAIController extends CarController {
 		}
 	}
 
-	private LinkedList<MapTile> getViewOfASide(WorldSpatial.RelativeDirection relativeDirection,
-			WorldSpatial.Direction orientation, HashMap<Coordinate, MapTile> currentView) {
+	private LinkedList<MapTile> getViewOfASide(RelativeDirection relativeDirection, WorldSpatial.Direction orientation,
+			HashMap<Coordinate, MapTile> currentView) {
 		switch (orientation) {
 		case WEST:
 			switch (relativeDirection) {
@@ -798,22 +799,22 @@ public class MyAIController extends CarController {
 		switch (orientation) {
 		case EAST:
 			for (int i = 1; i <= Car.VIEW_SQUARE; i++) {
-				tiles.addLast(currentView.get(new Coordinate(currentPosition.getX() + i, currentPosition.getY())));
+				tiles.addLast(currentView.get(new Coordinate(currentPosition.x + i, currentPosition.y)));
 			}
 			break;
 		case WEST:
 			for (int i = 1; i <= Car.VIEW_SQUARE; i++) {
-				tiles.addLast(currentView.get(new Coordinate(currentPosition.getX() - i, currentPosition.getY())));
+				tiles.addLast(currentView.get(new Coordinate(currentPosition.x - i, currentPosition.y)));
 			}
 			break;
 		case NORTH:
 			for (int i = 1; i <= Car.VIEW_SQUARE; i++) {
-				tiles.addLast(currentView.get(new Coordinate(currentPosition.getX(), currentPosition.getY() + i)));
+				tiles.addLast(currentView.get(new Coordinate(currentPosition.x, currentPosition.y + i)));
 			}
 			break;
 		case SOUTH:
 			for (int i = 1; i <= Car.VIEW_SQUARE; i++) {
-				tiles.addLast(currentView.get(new Coordinate(currentPosition.getX(), currentPosition.getY() - i)));
+				tiles.addLast(currentView.get(new Coordinate(currentPosition.x, currentPosition.y - i)));
 			}
 			break;
 		}
@@ -822,8 +823,8 @@ public class MyAIController extends CarController {
 
 	private int getRoadWidth(WorldSpatial.Direction orientation, HashMap<Coordinate, MapTile> currentView) {
 		int roadWidth = 0;
-		LinkedList<MapTile> tilesLeft = getViewOfASide(WorldSpatial.RelativeDirection.LEFT, orientation, currentView);
-		LinkedList<MapTile> tilesRight = getViewOfASide(WorldSpatial.RelativeDirection.RIGHT, orientation, currentView);
+		LinkedList<MapTile> tilesLeft = getViewOfASide(RelativeDirection.LEFT, orientation, currentView);
+		LinkedList<MapTile> tilesRight = getViewOfASide(RelativeDirection.RIGHT, orientation, currentView);
 		int i, j;
 		for (i = 0; i < tilesLeft.size(); i++) {
 			MapTile tile = tilesLeft.get(i);
@@ -841,27 +842,44 @@ public class MyAIController extends CarController {
 		return roadWidth;
 	}
 
-	// the point we have passed the traps
-	private Coordinate getPassPosition(Coordinate bestPosition, WorldSpatial.Direction orientation) {
+	public State getState() {
+		return this.state;
+	}
+
+	private boolean shouldBrake(String currentPosition, String bestPosition, float v,
+			WorldSpatial.Direction orientation) {
+		int X_POS = 0;
+		int Y_POS = 1;
+		// this is the distance for braking
+		float a = -2F;
+		float t = v / (-a);
+		// s = vt + 1/2 * at^2
+		float distance = v * t + (0.5F) * a * t * t;
+		System.out.println(distance);
+		String[] splitCoordinate = currentPosition.split(",");
+		float currentPosition_x_float = Float.parseFloat((splitCoordinate[X_POS]));
+		float currentPosition_y_float = Float.parseFloat((splitCoordinate[Y_POS]));
+
+		splitCoordinate = bestPosition.split(",");
+		float bestPosition_x_float = Float.parseFloat((splitCoordinate[X_POS]));
+		float bestPosition_y_float = Float.parseFloat((splitCoordinate[Y_POS]));
+
 		switch (orientation) {
-		case NORTH:
-			bestPosition.setY(bestPosition.getY() + 3);
-			break;
-		case SOUTH:
-			bestPosition.setY(bestPosition.getY() - 3);
-			break;
 		case EAST:
-			bestPosition.setX(bestPosition.getX() + 3);
-			break;
 		case WEST:
-			bestPosition.setX(bestPosition.getX() - 3);
+			if (Math.abs(currentPosition_x_float - bestPosition_x_float) <= distance) {
+				return true;
+			}
+			break;
+		case NORTH:
+		case SOUTH:
+			if (Math.abs(currentPosition_y_float - bestPosition_y_float) <= distance) {
+				return true;
+			}
 			break;
 		}
-		return bestPosition;
-	}
-	
-	public State getState(){
-		return this.state;
+		return false;
+
 	}
 
 }
