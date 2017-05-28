@@ -7,6 +7,8 @@ import world.WorldSpatial;
 public class Coordinate {
 	private int x;
 	private int y;
+	private float x_float;
+	private float y_float;
 	
 	private static final int X_POS = 0;
 	private static final int Y_POS = 1;
@@ -20,8 +22,10 @@ public class Coordinate {
 		// Split up coordinate
 		try{
 			String[] splitCoordinate = coordinate.split(",");
-			this.x = Integer.parseInt(splitCoordinate[X_POS]);
-			this.y = Integer.parseInt(splitCoordinate[Y_POS]);
+			this.x_float = Float.parseFloat((splitCoordinate[X_POS]));
+			this.y_float = Float.parseFloat((splitCoordinate[Y_POS]));
+			this.x = Math.round(this.x_float);
+			this.y = Math.round(this.y_float);
 		}
 		catch(Exception e){
 			e.printStackTrace();
@@ -51,8 +55,10 @@ public class Coordinate {
 	}
 	
 	public String toString(){
-		return x+","+y;
+		return x+","+y + " float: " + x_float + "," + y_float;
 	}
+	
+	
 	
 	
 	/**
@@ -74,18 +80,22 @@ public class Coordinate {
 	/**
 	 * Defined in order to use it as keys in a hashmap
 	 */
-	public  boolean closeTo(Coordinate other, WorldSpatial.Direction orientation){
-		System.out.println(orientation);
+	public  boolean shouldBrake(Coordinate other, WorldSpatial.Direction orientation, float speed){
+		// this is the distance for break
+		float a = 2F;
+		float t = speed / a;
+		float distance;
+		distance = speed * t - t*t;
 		switch(orientation){
 		case EAST:
 		case WEST:
-			if(Math.abs(other.x - this.x) < 1){
+			if(Math.abs(other.x_float- this.x_float) <= distance){
 				return true;
 			}
 			break;
 		case NORTH:
 		case SOUTH:
-			if(Math.abs(other.y - this.y) < 1){
+			if(Math.abs(other.y_float - this.y_float) <= distance){
 				return true;
 			}
 			break;

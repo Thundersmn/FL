@@ -133,7 +133,8 @@ public class Car extends Sprite{
 		// Calculate the braking force, if not braking apply a small amount of friction so we slow down over
 		// time, given this is negligible compared to braking we do one or, not both
 		float frictionForce = 0;
-		if(handBrake && (this.velocity.len() > EPSILON)){
+//		if(handBrake && (this.velocity.len() > EPSILON)){
+		if(handBrake){
 			frictionForce = BRAKING_FORCE;
 		} else if (this.velocity.len() > 0){
 			frictionForce = FRICTION_FORCE;
@@ -650,7 +651,8 @@ public class Car extends Sprite{
 	}
 
 	public String getPosition(){
-		return Math.round(this.getX())+","+Math.round(this.getY());
+//		return Math.round(this.getX())+","+Math.round(this.getY());
+		return this.getX() + "," + this.getY();
 	}
 	public int getHealth(){
 		return this.health;
