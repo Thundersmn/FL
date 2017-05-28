@@ -25,7 +25,8 @@ public class MyAIController extends AIController{
 	private boolean isThreePointTurning = false;
 	private boolean isUTurning = false;
 	private boolean isReversingOut = false;
-	private String stateForDetectingTraps; // Previously called state in sequence diagram
+	// Previously called state in sequence diagram, also changed to an enum from a String
+	private statesForTraps currStateForTraps = statesForTraps.IDLE; 
 	private Coordinate bestPosition;
 	
 	// Car Speed to move at
@@ -113,17 +114,10 @@ public class MyAIController extends AIController{
 	}
 	
 	/* OWN METHODS */
-	private enum statesForDetectingTraps { IDLE, SEARCHING, END }
 	
-	/**
-	 * Check if trap is ahead
-	 * Previously called setState in sequence diagram
-	 * @param stateToSet
-	 * @return
-	 */
-	private void setStateForDetectingTraps(String stateToSet) {
-		this.stateForDetectingTraps = stateToSet;
-	}
+	/* enum for possible states when dealing with traps, default is IDLE*/
+	private enum statesForTraps { IDLE, SEARCHING, END }
+	
 	/**
 	 * Check if trap is ahead
 	 * @param currentView
