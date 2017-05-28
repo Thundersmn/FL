@@ -53,13 +53,14 @@ public class MyAIController extends CarController{
 	private boolean isReversingOut = false;
 	
 	// Relate to Traps
-	private Coordinate bestPosition;
+	private String bestPositionString;
 	private int bestScore = 100;
 	
 	// used to check whether the right turn is finished
 	private WorldSpatial.Direction directionAfterTurnRight;
 	private WorldSpatial.Direction directionAfterTurnLeft;
 	
+	private Coordinate lastPosition = new Coordinate(0,0);
 	/**
 	 * enum for possible states when dealing with traps
 	 * IDLE no traps nearby
@@ -90,14 +91,13 @@ public class MyAIController extends CarController{
 
 	@Override
 	public void update(float delta) {
-
 		
 		// Gets what the car can see
 		HashMap<Coordinate, MapTile> currentView = getView();
 		
-		
 		checkStateChange();
 		
+		System.out.println(currStateForTraps);
 		// DO OUR SEQ DIAGRAM SHIT HERE!	
 		if (currStateForTraps == StatesForTraps.IDLE && isTrapAhead(currentView, getOrientation())) {
 
@@ -105,8 +105,7 @@ public class MyAIController extends CarController{
 			int roadWidth = getRoadWidth(getOrientation(), currentView);
 			LinkedList<MapTile> tilesRight = getViewOfASide(RelativeDirection.RIGHT, getOrientation(),
 					currentView);
-			// the road is too narrow to turn or the tile on the right side is
-			// trap
+			// the road is too narrow to turn or the tile on the right side is a trap
 			// just go through
 			if (roadWidth == 1 || tilesRight.get(0).getName().equals("Trap")) {
 				currStateForTraps = StatesForTraps.PASSING;
@@ -115,7 +114,7 @@ public class MyAIController extends CarController{
 
 			directionAfterTurnRight = getDirectionAfterTurnRight(getOrientation());
 			currStateForTraps = StatesForTraps.TURNING_RIGHT;
-			bestPosition = new Coordinate(getPosition());
+			bestPositionString = getPosition();
 
 			bestScore = damageFromTraps(RelativeDirection.LEFT, currentView, getOrientation());
 			return;
@@ -142,7 +141,6 @@ public class MyAIController extends CarController{
 				applyForwardAcceleration();
 			}
 			int score = damageFromTraps(RelativeDirection.LEFT, currentView, getOrientation());
-			System.out.println(score);
 			// no traps
 			if (score == 0) {
 				currStateForTraps = StatesForTraps.TURNING_LEFT;
@@ -150,6 +148,7 @@ public class MyAIController extends CarController{
 				return;
 			}
 			Coordinate currentPosition = new Coordinate(getPosition());
+			Coordinate bestPosition = new Coordinate(bestPositionString);
 			if(currentPosition.equals(bestPosition)){
 				bestPosition = currentPosition;
 			}
@@ -164,20 +163,15 @@ public class MyAIController extends CarController{
 
 		// go back to the best place
 		if (currStateForTraps == StatesForTraps.BACK) {
-			Coordinate currentPosition = new Coordinate(getPosition());
-
-
-			//if (currentPosition.shouldBrake(bestPosition,getOrientation(), getVelocity())) {
-
-				//currStateForTraps = StatesForTraps.STOP;
-				
-			//} else {
+			if (shouldBrake(getPosition(), bestPositionString, getVelocity(), getOrientation())) {
+				currStateForTraps = StatesForTraps.STOP;
+			} else {
 				// Backward accelerate
-			//	if (getVelocity() < (CAR_SPEED)) {
-			//		applyReverseAcceleration();
-			//	}
-			//	return;
-			//}
+				if (getVelocity() < CAR_SPEED) {
+					applyReverseAcceleration();
+				}
+				return;
+			}
 
 		}
 		
@@ -186,14 +180,14 @@ public class MyAIController extends CarController{
 				applyBrake();
 				return;
 			} else {
-				Coordinate currentPosition = new Coordinate(getPosition());
+				// Coordinate currentPosition = new Coordinate(getPosition());
 				currStateForTraps = StatesForTraps.TURNING_LEFT;
 				directionAfterTurnLeft = getDirectionAfterTurnLeft(getOrientation());
 				return;
 			}
 		}
 
-		if (currStateForTraps == StatesForTraps.TURNING_RIGHT) {
+		if (currStateForTraps == StatesForTraps.TURNING_LEFT) {
 
 			if (getOrientation() != directionAfterTurnLeft) {
 				if (getVelocity() < (CAR_SPEED / DIVIDE_CAR_SPEED_BY_2)) {
@@ -211,7 +205,7 @@ public class MyAIController extends CarController{
 
 		// use the fastest speed possible to traverse it
 		if (currStateForTraps == StatesForTraps.PASSING) {
-			if (getVelocity() < (CAR_SPEED) / 1.3) {
+			if (getVelocity() < CAR_SPEED) {
 				applyForwardAcceleration();
 				return;
 			} else {
@@ -223,7 +217,7 @@ public class MyAIController extends CarController{
 		// cause the speed is very fast in order to pass the traps
 		// after we traverse the trap, we need to slow down
 		if (currStateForTraps == StatesForTraps.END) {
-			if (getVelocity() > (CAR_SPEED) / 2) {
+			if (getVelocity() > (CAR_SPEED / DIVIDE_CAR_SPEED_BY_2)) {
 				applyBrake();
 				return;
 			} else {
@@ -235,6 +229,7 @@ public class MyAIController extends CarController{
 		
 		// If you are not following a wall initially, find a wall to stick to!
 		if(!isFollowingWall){
+			
 			if(getVelocity() < CAR_SPEED){
 				applyForwardAcceleration();
 			}
@@ -255,7 +250,7 @@ public class MyAIController extends CarController{
 			}
 		}
 		// Once the car is already stuck to a wall, apply the following logic
-		else{
+		else if(isFollowingWall){
 			
 			// Readjusts the car if it is not aligned.
 			readjust(lastTurnDirection,delta);
@@ -275,7 +270,7 @@ public class MyAIController extends CarController{
 			// Try to determine whether or not the car is next to a wall.
 			else if(checkFollowingWall(getOrientation(),currentView)){
 				// Maintain some velocity
-				if(getVelocity() < CAR_SPEED){
+				if(getVelocity() < CAR_SPEED / 1.44){
 					applyForwardAcceleration();
 				}
 				// If there is wall ahead, turn right!
@@ -293,6 +288,15 @@ public class MyAIController extends CarController{
 			}
 		}
 		
+		/* ERROR WITH POSITIONS
+		Coordinate currentposition = new Coordinate(getPosition());
+		System.out.println("STUCK: " + currentposition + " VS. " + lastPosition);
+		if (lastPosition.equals(currentposition)) {
+			// Stuck
+			applyReverseAcceleration();
+		}
+		lastPosition = new Coordinate(getPosition());
+		*/
 	}
 	
 	/* METHODS FROM AIController CLASS */
@@ -839,6 +843,11 @@ public class MyAIController extends CarController{
 		return tiles;
 	}
 	
+	/** 
+	 * Obtain road with where the car is at
+	 * @param orientation
+	 * @param currentview
+	 */ 
 	private int getRoadWidth(WorldSpatial.Direction orientation, HashMap<Coordinate, MapTile> currentView) {
 		int roadWidth = 0;
 		LinkedList<MapTile> tilesLeft = getViewOfASide(RelativeDirection.LEFT, orientation, currentView);
@@ -860,4 +869,53 @@ public class MyAIController extends CarController{
 		roadWidth = i;
 		return roadWidth;
 	}
+	
+	/** 
+	 * Defined in order to use it as keys in a hashmap
+	 * @param other
+	 * @param orientation
+	 * @param speed
+	 * @param currentPos
+	 */ 
+	  private boolean shouldBrake(String currentPosition, String bestPosition, float v,
+		      WorldSpatial.Direction orientation) {
+		 
+	    int X_POS = 0;
+	    int Y_POS = 1;
+ 
+		    // this is the distance for braking	 
+	    float a = -2F;
+	    float t = v / (-a);
+	 
+	    // s = vt + 1/2 * at^2
+	 
+	    float distance = v * t + (0.5F) * a * t * t;	 
+	    System.out.println(distance);	 
+	    String[] splitCoordinate = currentPosition.split(","); 
+	    float currentPosition_x_float = Float.parseFloat((splitCoordinate[X_POS])); 
+	    float currentPosition_y_float = Float.parseFloat((splitCoordinate[Y_POS]));
+
+	 
+	    splitCoordinate = bestPosition.split(",");
+	    float bestPosition_x_float = Float.parseFloat((splitCoordinate[X_POS]));
+	    float bestPosition_y_float = Float.parseFloat((splitCoordinate[Y_POS]));
+
+	    switch(orientation) {
+		 
+	    case EAST: 
+	    case WEST: 
+	    	if (Math.abs(currentPosition_x_float - bestPosition_x_float) <= distance) {     	 
+	            return true;
+	          }  
+	          break;
+	    case NORTH:
+	    case SOUTH:
+	      if (Math.abs(currentPosition_y_float - bestPosition_y_float) <= distance) {
+	        return true;
+	      } 
+	      break;
+	    }
+	 
+	    return false; 
+	  } 
 }
