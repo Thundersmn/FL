@@ -20,6 +20,7 @@ import world.WorldSpatial;
 public class MyAIController extends AIController{
 	
 	// New Attributes
+	private boolean onTheWayOut = false; // was in sequence diagram but forgot to include in class diagram
 	private boolean isThreePointTurning = false;
 	private boolean isUTurning = false;
 	private boolean isReversingOut = false;
