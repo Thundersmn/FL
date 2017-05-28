@@ -9,7 +9,7 @@ public class WorldSpatial {
 	
 	public enum Direction { EAST, WEST, SOUTH, NORTH}
 	
-	public static enum RelativeDirection { LEFT, RIGHT };
+	public static enum RelativeDirection {FRONT, LEFT, RIGHT, BACK};
 	
 	public final static int EAST_DEGREE_MIN = 0;
 	public final static int EAST_DEGREE_MAX = 360;

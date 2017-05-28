@@ -2,6 +2,8 @@ package utilities;
 
 import java.util.Objects;
 
+import world.WorldSpatial;
+
 public class Coordinate {
 	private int x;
 	private int y;
@@ -35,6 +37,14 @@ public class Coordinate {
 	}
 	
 	
+	
+	
+	public void setX(int x) {
+		this.x = x;
+	}
+	public void setY(int y) {
+		this.y = y;
+	}
 	public Coordinate(int x, int y){
 		this.x = x;
 		this.y = y;
@@ -59,6 +69,28 @@ public class Coordinate {
 		Coordinate coordinate = (Coordinate) c;
 		
 		return (coordinate.x == this.x) && (coordinate.y == this.y);
+	}
+	
+	/**
+	 * Defined in order to use it as keys in a hashmap
+	 */
+	public  boolean closeTo(Coordinate other, WorldSpatial.Direction orientation){
+		System.out.println(orientation);
+		switch(orientation){
+		case EAST:
+		case WEST:
+			if(Math.abs(other.x - this.x) < 1){
+				return true;
+			}
+			break;
+		case NORTH:
+		case SOUTH:
+			if(Math.abs(other.y - this.y) < 1){
+				return true;
+			}
+			break;
+		}
+		return false;
 	}
 	
 	public int hashCode(){
