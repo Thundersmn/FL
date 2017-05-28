@@ -1,6 +1,7 @@
 /**
  * By Michael Lee (563550)
- * 
+ * 	  Mengnan Shi (802123)
+ * 	  Xuelin Zhao (801736)
  * Package largely adapted from AIController in controller package
  * but with added attributes and methods to implement a better behaviour model
  * In our sequence diagram, we had MyAIController be a child class of CarController but for the
@@ -18,7 +19,6 @@ import tiles.MapTile;
 import utilities.Coordinate;
 import world.Car;
 import world.WorldSpatial;
-import world.WorldSpatial.RelativeDirection;
 
 public class MyAIController extends CarController{
 	
@@ -96,9 +96,12 @@ public class MyAIController extends CarController{
 		HashMap<Coordinate, MapTile> currentView = getView();
 		
 		checkStateChange();
-		// check if car is at dead end
-		isDeadEnd = isDeadEndAhead(getOrientation(), currentView);
+		
 		int roadWidth = getRoadWidth(getOrientation(), currentView);
+		
+		isDeadEnd = isDeadEndAhead(getOrientation(), currentView);
+		
+		// check if car is at dead end
 		if (isDeadEnd) {
 			if (roadWidth <= 1) {
 				// Reverse the car, road too narrow
@@ -113,7 +116,8 @@ public class MyAIController extends CarController{
 				applyUTurn(getOrientation(), currentView, delta);
 			}
 		}
-		// DO OUR SEQ DIAGRAM SHIT HERE!	
+		
+		// Detecting Traps here
 		if (currStateForTraps == StatesForTraps.IDLE && isTrapAhead(currentView, getOrientation())) {
 			
 			LinkedList<MapTile> tilesRight = getViewOfASide(RelativeDirection.RIGHT, getOrientation(),
@@ -905,11 +909,11 @@ public class MyAIController extends CarController{
 	}
 	
 	/** 
-	 * Defined in order to use it as keys in a hashmap
-	 * @param other
+	 * Braking function to stop the car
+	 * @param currentposition
+	 * @param bestposition
+	 * @param v
 	 * @param orientation
-	 * @param speed
-	 * @param currentPos
 	 */ 
 	  private boolean shouldBrake(String currentPosition, String bestPosition, float v,
 		      WorldSpatial.Direction orientation) {
