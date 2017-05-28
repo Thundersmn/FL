@@ -100,9 +100,17 @@ public class MyAIController extends CarController{
 		isDeadEnd = isDeadEndAhead(getOrientation(), currentView);
 		int roadWidth = getRoadWidth(getOrientation(), currentView);
 		if (isDeadEnd) {
-			if (roadWidth == 1) {
+			if (roadWidth <= 1) {
+				// Reverse the car, road too narrow
 				applyReverseOut();
-				return;
+			}
+			else if (roadWidth > 1 && roadWidth <= 3) {
+				//not that wide, use 3 point turn
+				applyThreePointTurn(getOrientation(), delta);
+			}
+			else if (roadWidth >= 3) {
+				// Enough width for a U-Turn
+				applyUTurn(getOrientation(), currentView, delta);
 			}
 		}
 		// DO OUR SEQ DIAGRAM SHIT HERE!	
@@ -698,7 +706,7 @@ public class MyAIController extends CarController{
 	 * @return
 	 */
 	private boolean isOkToTurnRight(WorldSpatial.Direction orientation, HashMap<Coordinate, MapTile> currentView) {
-		// TODO
+		// TODO Not time for implementation
 		return false;
 	}
 	
@@ -709,7 +717,7 @@ public class MyAIController extends CarController{
 	 * @return
 	 */
 	private void applyThreePointTurn(WorldSpatial.Direction orientation, float delta) {
-		// TODO
+		// TODO No time for implementation
 	}
 
 	/**
