@@ -2,7 +2,7 @@ package world;
 
 /**
  * Defines the degrees that you can refer to if you want to create your
- * own code for turning the car.
+ * own code for turningithe car.
  *
  */
 public class WorldSpatial {

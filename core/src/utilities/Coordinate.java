@@ -3,8 +3,8 @@ package utilities;
 import java.util.Objects;
 
 public class Coordinate {
-	private int x;
-	private int y;
+	public int x;
+	public int y;
 	
 	private static final int X_POS = 0;
 	private static final int Y_POS = 1;
@@ -26,14 +26,6 @@ public class Coordinate {
 		}
 		
 	}
-	/* Getters for x and y */
-	public int getX() {
-		return x;
-	}
-	public int getY() {
-		return y;
-	}
-	
 	
 	public Coordinate(int x, int y){
 		this.x = x;
